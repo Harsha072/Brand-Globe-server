@@ -1,6 +1,8 @@
 from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework import status
+from django.shortcuts import get_object_or_404
+from utils import generate_description
 
 from brands.models import Brand
 from .models import Product
@@ -12,16 +14,25 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         brand_id = request.data.get('brand')
-        try:
-            brand = Brand.objects.get(id=brand_id)
-            if brand_id == brand.id:
-                print(f"Brand ID matched: {brand_id}")
-            else:
-                print(f"Brand ID not matching: request ID {brand_id}, database ID {brand.id}")
-        except Brand.DoesNotExist:
-            return Response({"error": "Brand not found"}, status=status.HTTP_400_BAD_REQUEST)
-        
+        brand_name = request.data.get('name')
+
+        if not brand_id:
+            return Response({"error": "Brand ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Use get_object_or_404 to simplify brand lookup
+        brand = get_object_or_404(Brand, id=brand_id)
+
+        # Generate the product description
+        generated_description = generate_description(brand_name)
+
+        if generated_description is None:
+            return Response({"error": "Failed to generate description"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # You don't need to redefine the data here, just use request.data
+        request.data['description'] = generated_description
+
         return super().create(request, *args, **kwargs)
+
 
     def update(self, request, *args, **kwargs):
         # Update a product
